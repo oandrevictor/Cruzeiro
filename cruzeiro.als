@@ -1,7 +1,4 @@
 module Cruzeiro 
-	// asserts	
-	// coisos temporal
-
 	open util/ordering[Time]
 	sig Time {}
 	
@@ -16,9 +13,11 @@ module Cruzeiro
 	one sig Squash extends AtividadeMatutina{}
 	one sig AulaNatacao extends AtividadeMatutina{}
 	one sig NadoSincronizado extends AtividadeMatutina{}
+
 	one sig Hoquei extends AtividadeVespertina{}
 	one sig Meditacao extends AtividadeVespertina{}
 	one sig Cinema extends AtividadeVespertina{}
+
 	one sig DegustacaoVinhos extends AtividadeNoturna{}
 	one sig Discoteca extends AtividadeNoturna{}
 
@@ -46,7 +45,7 @@ module Cruzeiro
 		Pai+ FilhoCrianca
 	}
 
-	/* !!!!!!!! Sera que é melhor definir lets? !!!!!!!!!!!!!!! */
+	/* Funções para obtenção dos turnos */
 	fun manha: one Time{
 		first.next
 	}
@@ -57,7 +56,7 @@ module Cruzeiro
 		tarde.next
 	}
 
-	/* obtem os eventos participados em um horario especifico */
+	/* Funções para obtenção dos eventos participados em um horario especifico */
 	fun participou_de_manha[p:Pessoa] : set Atividade{
 		p.participa.manha
 	}
@@ -72,19 +71,20 @@ module Cruzeiro
 		p in homens
 	}
 	
-	pred pais_em_atividade[a:Atividade]{
-		some p:pais, t:Time| a in p.participa.t
+	pred pais_em_atividade[a:Atividade,t:Time]{
+		some p:pais| a in p.participa.t
 	}
 
 	fact minimo_de_atividades{	
-		let noite =  first.next.next.next | all p:Pessoa| #((p.participa).noite) >= 4
+		all p:Pessoa| #((p.participa).noite) >= 4
 	}
 
 	/* O filho não participa de atividades noturnas e requer a presença de um dos pais para toda atividade que participar. */
 	fact restricoes_crianca{
-		all c:FilhoCrianca, t:Time, a:c.participa.t|
-				pais_em_atividade[a]
+		all t:Time, a:FilhoCrianca.participa.t|
+				pais_em_atividade[a,t]
 	}
+
 	fact{
 		all c:FilhoCrianca| #{participou_de_noite[c]} = 0
 	}
@@ -99,7 +99,7 @@ module Cruzeiro
 	
 		
 	fact definir_programacao{
-		one cruzeiro: Cruzeiro | let noite = tarde.next{
+		one cruzeiro: Cruzeiro{
 			cruzeiro.atividadesDisponiveis.manha  =  AtividadeMatutina and
 			cruzeiro.atividadesDisponiveis.tarde = AtividadeVespertina and
 			cruzeiro.atividadesDisponiveis.noite = AtividadeNoturna
@@ -114,7 +114,7 @@ module Cruzeiro
 	/* Adicao de atividades de acordo com o tempo */
 	pred participa_atividade[p:Pessoa, a: some Atividade,t,t':Time]{
 		(a !in(p.participa).t) and (a in (Cruzeiro.atividadesDisponiveis.t'))  and
-		 (((p.participa).t ) in ((p.participa).t')) and (a in ((p.participa).t')) 
+		 (((p.participa).t + a ) in ((p.participa).t')) 
 	}
 
 	/* É possivel também que em um certo momento, uma pessoa não participe de nenhuma atividade.*/
@@ -135,7 +135,35 @@ module Cruzeiro
 					(participa_atividade[p,a,pre,pos]) or (nao_participa_atividade[p,a,pre,pos])
 	}
 
+	
+
+	assert minimo_4_atividades_fim_do_dia {
+		all p:Pessoa | #(p.participa.noite) >=4
+	}
+
+	assert crianca_nao_participa_atividade_noturna {
+	 all a:FilhoCrianca.participa.noite |  a !in AtividadeNoturna
+	}
+
+	assert nado_sincronizado_nao_contem_homem{
+		all h: homens | NadoSincronizado !in h.participa.noite
+	}
+
+	assert atividades_simultaneas{
+		all p:Pessoa | all t:Time| (NadoSincronizado + AulaNatacao) !in p.participa.t 
+	}
+
+	assert crianca_acompanhada{
+		all t:Time, a:FilhoCrianca.participa.t |  (a in Mae.participa.t) or (a in Pai.participa.t)
+	}
+
 	pred show[]{
 	}
 
+	--check minimo_4_atividades_fim_do_dia for 10
+	--check crianca_nao_participa_atividade_noturna for 10
+	--check nado_sincronizado_nao_contem_homem for 10
+	--check atividades_simultaneas for 10
+	--check crianca_acompanhada for 10
 	run show for 10 but 4 Time // Tempo inicial, Manhã, Tarde e Noite
+	
